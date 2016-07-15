@@ -217,6 +217,7 @@ Foam::tmp<Foam::volTensorField> Foam::Curle::d2Tijdt2() const
     // Get time stepping size
     scalar deltaT = mesh.time().deltaTValue();
     scalar deltaT0 = mesh.time().deltaT0Value();
+    scalar dt = 4.0 / sqr(deltaT + deltaT0);
 
     // Calculate coefficients
     scalar coefft   = (deltaT + deltaT0)/(2.*deltaT);
@@ -224,18 +225,16 @@ Foam::tmp<Foam::volTensorField> Foam::Curle::d2Tijdt2() const
     scalar coefft0  = coefft + coefft00;
 
     // First-order Euler second time derivative
-    // assuming constant time stepping
     // see: EulerD2dt2Scheme.H
     return
     (
-        rhoRef_*
+        rhoRef_*dt*
         (
             (
                 coefft*U*U
               - coefft0*U0*U0
               + coefft00*U00*U00
             )
-          / sqr(mesh.time().deltaT())
         )
     );
 }
@@ -265,7 +264,7 @@ Foam::Curle::Curle
     pName_(word::null),
     UName_(word::null),
     rhoRef_(-1),
-    cRef_(readScalar(dict.lookup("cRef"))),
+    cRef_(-1),
     observers_(0)
 {
     // Check if the available mesh is an fvMesh otherise deactivate
@@ -327,7 +326,7 @@ void Foam::Curle::read(const dictionary& dict)
         
         cRef_ = readScalar(dict.lookup("cRef"));
 
-        if (log_) Info << type() << " " << name_ << ":" << nl;
+        if (log_) Info << "Acoustic analogy: " << type() << nl;
         
         // Read observers
         {
@@ -457,6 +456,8 @@ void Foam::Curle::calculate()
             }
             reduce(pPrime, sumOp<scalar>());
         }
+
+
 
         // Surface integral - loop over all patches
         forAllConstIter(labelHashSet, patches_, iter)

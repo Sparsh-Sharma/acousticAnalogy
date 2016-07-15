@@ -62,7 +62,7 @@ Description
         type         | type name: Curle                                  | yes         |
         log          | write acoustic data to standard output            | no          | no
         patches      | patches included in the acoustic calculation      | yes         |
-        cellZone     | name of cell zone included in acoustic calculaion | no          |
+        cellZone     | name of cell zone for acoustic volume integrals   | no          |
         rhoRef       | reference density                                 | yes         |
         cRef         | reference speed of sound                          | yes         |
         pName        | pressure field name                               | no          | p
@@ -115,9 +115,6 @@ protected:
         //- Initialised flag
         bool initialised_;
         
-        //- Switch for compressible
-        bool compressible_;
-
         //- Switch to send output to Info as well as to file
         Switch log_;
         
@@ -133,9 +130,6 @@ protected:
         //- Name of pressure field (optional)
         word pName_;
         
-        //- Name of density field (optional)
-        word rhoName_;
-        
         //- Name of velocity field (optional)
         word UName_;
 
@@ -147,7 +141,8 @@ protected:
 
         //- List of observers
         List<SoundObserver> observers_;
-        
+
+
     // Protected Member Functions
 
         //- Create file names for Curle
