@@ -1,0 +1,5 @@
+Curle/Curle.C
+
+soundObserver.C
+
+LIB = $(FOAM_USER_LIBBIN)/libAcousticAnalogy
