@@ -43,7 +43,7 @@ timePrecision   6;
 runTimeModifiable yes;
 
 functions
-(
+{
     Curle
     {
         type                    Curle;
@@ -73,6 +73,6 @@ functions
             }
         }
     }
-);
+}
 
 // ************************************************************************* //

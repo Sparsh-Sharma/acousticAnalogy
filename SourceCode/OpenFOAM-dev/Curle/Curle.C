@@ -24,26 +24,23 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "Curle.H"
-#include "volFields.H"
-#include "dictionary.H"
-#include "Time.H"
-#include "wordReList.H"
-#include "fvcDdt.H"
-
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
-
 namespace Foam
 {
+namespace functionObjects
+{
     defineTypeNameAndDebug(Curle, 0);
+    addToRunTimeSelectionTable(functionObject, Curle, dictionary);
+}
 }
 
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-
-Foam::wordList Foam::Curle::createFileNames(const dictionary& dict) const
+Foam::wordList Foam::functionObjects::Curle::createFileNames(const dictionary& dict) const
 {
     DynamicList<word> names(1);
 
@@ -55,7 +52,7 @@ Foam::wordList Foam::Curle::createFileNames(const dictionary& dict) const
 }
 
 
-void Foam::Curle::writeFileHeader(const label i)
+void Foam::functionObjects::Curle::writeFileHeader(const label i)
 {
     if (i == 0)
     {
@@ -70,7 +67,7 @@ void Foam::Curle::writeFileHeader(const label i)
     }
     else
     {
-        FatalErrorIn("void Foam::Curle::writeFileHeader(const label)")
+        FatalErrorInFunction
             << "Unhandled file index: " << i
             << abort(FatalError);
     }
@@ -79,7 +76,7 @@ void Foam::Curle::writeFileHeader(const label i)
 }
 
 
-void Foam::Curle::writeCurle()
+void Foam::functionObjects::Curle::writeCurle()
 {
     // Log output
     if (log_) Info
@@ -102,9 +99,9 @@ void Foam::Curle::writeCurle()
 }
 
 
-void Foam::Curle::initialise()
+void Foam::functionObjects::Curle::initialise()
 {
-    if (initialised_ || !active_)
+    if (initialised_)
     {
         return;
     }
@@ -115,12 +112,9 @@ void Foam::Curle::initialise()
      || !obr_.foundObject<volScalarField>(pName_)
     )
     {
-        active_ = false;
-
-        WarningIn("void Foam::forces::initialise()")
-            << "Could not find " << UName_ << " or " << pName_
-            << " in database." << nl
-            << "    De-activating forces." << endl;
+        FatalErrorInFunction
+            << "Could not find " << UName_ << ", " << pName_
+            << exit(FatalError);
     }
     
     if
@@ -129,18 +123,16 @@ void Foam::Curle::initialise()
      && cellZoneName_ != word::null    
     )
     {
-        active_ = false;
-
-        WarningIn("void Foam::Curle::initialise()")
+        FatalErrorInFunction
             << "Could not find cellZone '" << cellZoneName_ << "' in database." << nl
-            << "    De-activating Curle." << endl;
+            << exit(FatalError);
     }
 
     initialised_ = true;
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::Curle::p() const
+Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::p() const
 {
     return
     (
@@ -149,7 +141,7 @@ Foam::tmp<Foam::volScalarField> Foam::Curle::p() const
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::Curle::dpdt() const
+Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::dpdt() const
 {
     return
     (
@@ -158,7 +150,7 @@ Foam::tmp<Foam::volScalarField> Foam::Curle::dpdt() const
 }
 
 
-Foam::tmp<Foam::volTensorField> Foam::Curle::Tij() const
+Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::Tij() const
 {
     const volVectorField& U = obr_.lookupObject<volVectorField>(UName_);
 
@@ -169,7 +161,7 @@ Foam::tmp<Foam::volTensorField> Foam::Curle::Tij() const
 }
 
 
-Foam::tmp<Foam::volTensorField> Foam::Curle::dTijdt() const
+Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::dTijdt() const
 {
     const fvMesh& mesh = refCast<const fvMesh>(obr_);
 
@@ -205,7 +197,7 @@ Foam::tmp<Foam::volTensorField> Foam::Curle::dTijdt() const
 }
 
 
-Foam::tmp<Foam::volTensorField> Foam::Curle::d2Tijdt2() const
+Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::d2Tijdt2() const
 {
     const fvMesh& mesh = refCast<const fvMesh>(obr_);
 
@@ -243,19 +235,16 @@ Foam::tmp<Foam::volTensorField> Foam::Curle::d2Tijdt2() const
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 
-Foam::Curle::Curle
+Foam::functionObjects::Curle::Curle
 (
     const word& name,
-    const objectRegistry& obr,
-    const dictionary& dict,
-    const bool loadFromFiles,
-    const bool readFields
+    const Time& runTime,
+    const dictionary& dict
 )
 :
-    functionObjectFile(obr, name, createFileNames(dict)),
+    regionFunctionObject(name, runTime, dict),
+    logFiles(obr_, name),
     name_(name),
-    obr_(obr),
-    active_(true),
     initialised_(false),
     log_(false),
     patches_(0),
@@ -268,149 +257,142 @@ Foam::Curle::Curle
     observers_(0)
 {
     // Check if the available mesh is an fvMesh otherise deactivate
-    if (isA<fvMesh>(obr_))
+    if (!isA<fvMesh>(obr_))
     {
-        if (readFields)
-        {
-            read(dict);
-            Info<< endl;
-        }
+        FatalErrorInFunction
+            << "objectRegistry is not an fvMesh" << exit(FatalError);
     }
-    else
+
+    read(dict);
+    resetNames(createFileNames(dict));
+}
+
+
+Foam::functionObjects::Curle::Curle
+(
+    const word& name,
+    const objectRegistry& obr,
+    const dictionary& dict
+)
+:
+    regionFunctionObject(name, obr, dict),
+    logFiles(obr_, name),
+    name_(name),
+    initialised_(false),
+    log_(false),
+    patches_(0),
+    cellZoneName_(word::null),
+    cellZoneID_(-1),
+    pName_(word::null),
+    UName_(word::null),
+    rhoRef_(-1),
+    cRef_(-1),
+    observers_(0)
+{
+    // Check if the available mesh is an fvMesh otherise deactivate
+    if (!isA<fvMesh>(obr_))
     {
-        active_ = false;
-        WarningIn
-        (
-            "Foam::Curle::Curle"
-            "("
-                "const word&, "
-                "const objectRegistry&, "
-                "const dictionary&, "
-                "const bool"
-            ")"
-        )   << "No fvMesh available, deactivating " << name_
-            << endl;
+        FatalErrorInFunction
+            << "objectRegistry is not an fvMesh" << exit(FatalError);
     }
+
+    read(dict);
+    resetNames(createFileNames(dict));
 }
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 
-Foam::Curle::~Curle()
+Foam::functionObjects::Curle::~Curle()
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 
-void Foam::Curle::read(const dictionary& dict)
+bool Foam::functionObjects::Curle::read(const dictionary& dict)
 {
-    if (active_)
+    const fvMesh& mesh = refCast<const fvMesh>(obr_);
+
+    log_ = dict.lookupOrDefault<Switch>("log", false);
+
+    patches_ = mesh.boundaryMesh().patchSet(wordReList(dict.lookup("patches")));
+    
+    cellZoneName_ = dict.lookupOrDefault<word>("cellZone", word::null);
+    
+    cellZoneID_ = mesh.cellZones().findZoneID(cellZoneName_);
+    
+    pName_ = dict.lookupOrDefault<word>("pName", "p");
+    
+    UName_ = dict.lookupOrDefault<word>("UName", "U");
+    
+    rhoRef_ = readScalar(dict.lookup("rhoRef"));
+    
+    cRef_ = readScalar(dict.lookup("cRef"));
+
+    if (log_) Info << "Acoustic analogy: " << type() << nl << nl;
+        
+    // Read observers
     {
-        const fvMesh& mesh = refCast<const fvMesh>(obr_);
+        const dictionary& obsDict = dict.subDict("observers");
+        wordList obsNames = obsDict.toc();
 
-        log_ = dict.lookupOrDefault<Switch>("log", false);
-        
-        patches_ = mesh.boundaryMesh().patchSet(wordReList(dict.lookup("patches")));
-        
-        cellZoneName_ = dict.lookupOrDefault<word>("cellZone", word::null);
-        
-        cellZoneID_ = mesh.cellZones().findZoneID(cellZoneName_);
-        
-        pName_ = dict.lookupOrDefault<word>("pName", "p");
-        
-        UName_ = dict.lookupOrDefault<word>("UName", "U");
-        
-        rhoRef_ = readScalar(dict.lookup("rhoRef"));
-        
-        cRef_ = readScalar(dict.lookup("cRef"));
-
-        if (log_) Info << "Acoustic analogy: " << type() << nl << nl;
-        
-        // Read observers
+        forAll (obsNames, obsI)
         {
-            const dictionary& obsDict = dict.subDict("observers");
-            wordList obsNames = obsDict.toc();
+            word oName = obsNames[obsI];
+            vector oPos (vector::zero);
+            obsDict.subDict(oName).lookup("position") >> oPos;
 
-            forAll (obsNames, obsI)
-            {
-                word oName = obsNames[obsI];
-                vector oPos (vector::zero);
-                obsDict.subDict(oName).lookup("position") >> oPos;
-
-                observers_.append
+            observers_.append
+            (
+                SoundObserver
                 (
-                    SoundObserver
-                    (
-                        oName,
-                        oPos
-                    )
-                );
-            }
+                    oName,
+                    oPos
+                )
+            );
         }
     }
+    
+    return true;
 }
 
 
-void Foam::Curle::execute()
+bool Foam::functionObjects::Curle::execute()
 {
-    // Do nothing - only valid on write
+    return true;
 }
 
 
-void Foam::Curle::end()
+bool Foam::functionObjects::Curle::write()
 {
-    // Do nothing - only valid on write
-}
-
-
-void Foam::Curle::timeSet()
-{
-    // Do nothing - only valid on write
-}
-
-
-void Foam::Curle::write()
-{
-    if
-    (
-        !active_
-    )
-    {
-        return;
-    }
-
     calculate();
 
     if (Pstream::master())
     {
-        functionObjectFile::write();
+        logFiles::write();
 
         writeCurle();
 
         if (log_) Info << endl;
     }
+    
+    return true;
 }
 
 
-void Foam::Curle::calculate()
+void Foam::functionObjects::Curle::calculate()
 {
     initialise();
-
-    if (!active_)
-    {
-        return;
-    }
 
     // Get access to mesh
     const fvMesh& mesh = refCast<const fvMesh>(obr_);
     
     // Pressure field and its time derivative
     volScalarField p = this->p();
-    volScalarField dpdt = this->dpdt();
-    
     p.correctBoundaryConditions();
+    volScalarField dpdt = this->dpdt();
     dpdt.correctBoundaryConditions();
 
     // Lighthill tensor and its time derivatives

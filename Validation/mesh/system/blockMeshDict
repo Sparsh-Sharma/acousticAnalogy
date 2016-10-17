@@ -17,7 +17,6 @@ FoamFile
 
 convertToMeters 1;
 
-
 vertices
 (
     (-100      -128.5875  -17.145)

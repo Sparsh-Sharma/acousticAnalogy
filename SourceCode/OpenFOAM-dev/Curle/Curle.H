@@ -75,21 +75,20 @@ Description
 #ifndef Curle_H
 #define Curle_H
 
-#include "functionObjectFile.H"
+#include "regionFunctionObject.H"
+#include "logFiles.H"
+#include "volFields.H"
+//#include "wordReList.H"
+#include "fvcDdt.H"
 #include "volFieldsFwd.H"
-#include "Switch.H"
 #include "soundObserver.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-
-// Forward declaration of classes
-class objectRegistry;
-class dictionary;
-class polyMesh;
-class mapPolyMesh;
+namespace functionObjects
+{
 
 /*---------------------------------------------------------------------------*\
                            Class Curle Declaration
@@ -97,7 +96,8 @@ class mapPolyMesh;
 
 class Curle
 :
-    public functionObjectFile
+    public regionFunctionObject,
+    public logFiles
 {
 protected:
 
@@ -106,11 +106,6 @@ protected:
         //- Name of this set of Curle,
         //  Also used as the name of the probes directory.
         word name_;
-
-        const objectRegistry& obr_;
-
-        //- On/off switch
-        bool active_;
 
         //- Initialised flag
         bool initialised_;
@@ -157,12 +152,6 @@ protected:
         //- Initialise the fields
         void initialise();
 
-        //- Disallow default bitwise copy construct
-        Curle(const Curle&);
-
-        //- Disallow default bitwise assignment
-        void operator=(const Curle&);
-
         //- Return pressure
         tmp<volScalarField> p() const;
 
@@ -178,6 +167,12 @@ protected:
         //- Return second time derivative of Lighthill tensor 
         tmp<volTensorField> d2Tijdt2() const;
 
+        //- Disallow default bitwise copy construct
+        Curle(const Curle&);
+
+        //- Disallow default bitwise assignment
+        void operator=(const Curle&);
+
 
 public:
 
@@ -187,15 +182,20 @@ public:
 
     // Constructors
 
-        //- Construct for given objectRegistry and dictionary.
-        //  Allow the possibility to load fields from files
+        //- Construct from Time and dictionary
         Curle
         (
             const word& name,
-            const objectRegistry&,
-            const dictionary&,
-            const bool loadFromFiles = false,
-            const bool readFields = true
+            const Time& runTime,
+            const dictionary& dict
+        );
+        
+        //- Construct from objectRegistry and dictionary
+        Curle
+        (
+            const word& name,
+            const objectRegistry& obr,
+            const dictionary&
         );
 
 
@@ -205,43 +205,24 @@ public:
 
     // Member Functions
 
-        //- Return name of the set of Curle
-        virtual const word& name() const
-        {
-            return name_;
-        }
-
         //- Read the Curle data
-        virtual void read(const dictionary&);
-
-        //- Execute, currently does nothing
-        virtual void execute();
-
-        //- Execute at the final time-loop, currently does nothing
-        virtual void end();
-
-        //- Called when time was set at the end of the Time::operator++
-        virtual void timeSet();
-
-        //- Write the acoustic data
-        virtual void write();
+        virtual bool read(const dictionary&);
 
         //- Calculate the acoustic data
         virtual void calculate();
 
-        //- Update for changes of mesh
-        virtual void updateMesh(const mapPolyMesh&)
-        {}
+        //- Execute, currently does nothing
+        virtual bool execute();
 
-        //- Update for changes of mesh
-        virtual void movePoints(const polyMesh&)
-        {}
+        //- Write the acoustic data
+        virtual bool write();
 
 };
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+} // End namespace functionObjects
 } // End namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
