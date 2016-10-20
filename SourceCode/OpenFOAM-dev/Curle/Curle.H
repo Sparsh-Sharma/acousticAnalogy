@@ -78,9 +78,7 @@ Description
 #include "regionFunctionObject.H"
 #include "logFiles.H"
 #include "volFields.H"
-//#include "wordReList.H"
 #include "fvcDdt.H"
-#include "volFieldsFwd.H"
 #include "soundObserver.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -104,7 +102,6 @@ protected:
     // Protected data
 
         //- Name of this set of Curle,
-        //  Also used as the name of the probes directory.
         word name_;
 
         //- Initialised flag

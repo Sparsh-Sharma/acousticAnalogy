@@ -23,7 +23,7 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "Curle.H"
+#include "FfowcsWilliamsHawkings.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -32,31 +32,31 @@ namespace Foam
 {
 namespace functionObjects
 {
-    defineTypeNameAndDebug(Curle, 0);
-    addToRunTimeSelectionTable(functionObject, Curle, dictionary);
+    defineTypeNameAndDebug(FfowcsWilliamsHawkings, 0);
+    addToRunTimeSelectionTable(functionObject, FfowcsWilliamsHawkings, dictionary);
 }
 }
 
 
 // * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
 
-Foam::wordList Foam::functionObjects::Curle::createFileNames(const dictionary& dict) const
+Foam::wordList Foam::functionObjects::FfowcsWilliamsHawkings::createFileNames(const dictionary& dict) const
 {
     DynamicList<word> names(1);
 
-    const word CurleType(dict.lookup("type"));
+    const word FfowcsWilliamsHawkingsType(dict.lookup("type"));
 
-    names.append(CurleType);
+    names.append(FfowcsWilliamsHawkingsType);
 
     return names;
 }
 
 
-void Foam::functionObjects::Curle::writeFileHeader(const label i)
+void Foam::functionObjects::FfowcsWilliamsHawkings::writeFileHeader(const label i)
 {
     if (i == 0)
     {
-        writeHeader(file(i), "Curle Acoustic Analogy");
+        writeHeader(file(i), "FfowcsWilliamsHawkings Acoustic Analogy");
         writeCommented(file(i), "Time");
 
         forAll(observers_, obsI)
@@ -76,7 +76,7 @@ void Foam::functionObjects::Curle::writeFileHeader(const label i)
 }
 
 
-void Foam::functionObjects::Curle::writeCurle()
+void Foam::functionObjects::FfowcsWilliamsHawkings::writeFfowcsWilliamsHawkings()
 {
     // Log output
     if (log_) Info
@@ -99,7 +99,7 @@ void Foam::functionObjects::Curle::writeCurle()
 }
 
 
-void Foam::functionObjects::Curle::initialise()
+void Foam::functionObjects::FfowcsWilliamsHawkings::initialise()
 {
     if (initialised_)
     {
@@ -111,20 +111,9 @@ void Foam::functionObjects::Curle::initialise()
         !obr_.foundObject<volVectorField>(UName_)
      || !obr_.foundObject<volScalarField>(pName_)
     )
-        {
-            FatalErrorInFunction
-                << "Could not find " << UName_ << ", " << pName_
-                << exit(FatalError);
-        }
-    
-    if
-    (
-        cellZoneID_ == -1
-     && cellZoneName_ != word::null    
-    )
     {
         FatalErrorInFunction
-            << "Could not find cellZone '" << cellZoneName_ << "' in database." << nl
+            << "Could not find " << UName_ << ", " << pName_
             << exit(FatalError);
     }
 
@@ -132,7 +121,7 @@ void Foam::functionObjects::Curle::initialise()
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::p() const
+Foam::tmp<Foam::volScalarField> Foam::functionObjects::FfowcsWilliamsHawkings::p() const
 {
     return
     (
@@ -141,7 +130,7 @@ Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::p() const
 }
 
 
-Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::dpdt() const
+Foam::tmp<Foam::volScalarField> Foam::functionObjects::FfowcsWilliamsHawkings::dpdt() const
 {
     return
     (
@@ -150,25 +139,43 @@ Foam::tmp<Foam::volScalarField> Foam::functionObjects::Curle::dpdt() const
 }
 
 
-Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::Tij() const
+Foam::tmp<Foam::volVectorField> Foam::functionObjects::FfowcsWilliamsHawkings::U() const
 {
-    const volVectorField& U = obr_.lookupObject<volVectorField>(UName_);
-
     return
     (
-        rhoRef_*(U*U)
+        obr_.lookupObject<volVectorField>(UName_)
     );
 }
 
 
-Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::dTijdt() const
+Foam::tmp<Foam::volVectorField> Foam::functionObjects::FfowcsWilliamsHawkings::dUdt() const
+{
+    return
+    (
+        Foam::fvc::ddt(obr_.lookupObject<volVectorField>(UName_))
+    );
+}
+
+
+Foam::tmp<Foam::surfaceVectorField> Foam::functionObjects::FfowcsWilliamsHawkings::n() const
 {
     const fvMesh& mesh = refCast<const fvMesh>(obr_);
 
-    // Get velocity field of current and last two time steps
-    const volVectorField& U = obr_.lookupObject<volVectorField>(UName_);
-    const volVectorField& U0 = obr_.lookupObject<volVectorField>(UName_).oldTime();
-    const volVectorField& U00 = obr_.lookupObject<volVectorField>(UName_).oldTime().oldTime();
+    return
+    (
+        -mesh.Sf() / mesh.magSf()
+    );
+}
+
+
+Foam::tmp<Foam::surfaceVectorField> Foam::functionObjects::FfowcsWilliamsHawkings::dndt() const
+{
+    const fvMesh& mesh = refCast<const fvMesh>(obr_);
+
+    // Get surface normal vector of current and last two time steps
+    surfaceVectorField n = -mesh.Sf() / mesh.magSf();
+    surfaceVectorField n0 = -mesh.Sf().oldTime() / mesh.magSf().oldTime();
+    surfaceVectorField n00 = -mesh.Sf().oldTime().oldTime() / mesh.magSf().oldTime().oldTime();
 
     // Get time stepping size
     scalar deltaT = mesh.time().deltaTValue();
@@ -184,49 +191,13 @@ Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::dTijdt() const
     // see: backwardDdtScheme.C
     return
     (
-        rhoRef_*
         (
             (
-                coefft*U*U
-              - coefft0*U0*U0
-              + coefft00*U00*U00
+                coefft*n
+              - coefft0*n0
+              + coefft00*n00
             )
           / mesh.time().deltaT()
-        )
-    );
-}
-
-
-Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::d2Tijdt2() const
-{
-    const fvMesh& mesh = refCast<const fvMesh>(obr_);
-
-    // Get velocity field of current and last two time steps
-    const volVectorField& U = obr_.lookupObject<volVectorField>(UName_);
-    const volVectorField& U0 = obr_.lookupObject<volVectorField>(UName_).oldTime();
-    const volVectorField& U00 = obr_.lookupObject<volVectorField>(UName_).oldTime().oldTime();
-
-    // Get time stepping size
-    scalar deltaT = mesh.time().deltaTValue();
-    scalar deltaT0 = mesh.time().deltaT0Value();
-    scalar dt = 4.0 / sqr(deltaT + deltaT0);
-
-    // Calculate coefficients
-    scalar coefft   = (deltaT + deltaT0)/(2.*deltaT);
-    scalar coefft00 = (deltaT + deltaT0)/(2.*deltaT0);
-    scalar coefft0  = coefft + coefft00;
-
-    // First-order Euler second time derivative
-    // see: EulerD2dt2Scheme.H
-    return
-    (
-        rhoRef_*dt*
-        (
-            (
-                coefft*U*U
-              - coefft0*U0*U0
-              + coefft00*U00*U00
-            )
         )
     );
 }
@@ -235,20 +206,19 @@ Foam::tmp<Foam::volTensorField> Foam::functionObjects::Curle::d2Tijdt2() const
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 
-Foam::functionObjects::Curle::Curle
+Foam::functionObjects::FfowcsWilliamsHawkings::FfowcsWilliamsHawkings
 (
     const word& name,
     const Time& runTime,
     const dictionary& dict
 )
 :
-    writeFiles(name, runTime, dict, name),
+    regionFunctionObject(name, runTime, dict),
+    logFiles(obr_, name),
     name_(name),
     initialised_(false),
     log_(false),
     patches_(0),
-    cellZoneName_(word::null),
-    cellZoneID_(-1),
     pName_(word::null),
     UName_(word::null),
     rhoRef_(-1),
@@ -267,20 +237,19 @@ Foam::functionObjects::Curle::Curle
 }
 
 
-Foam::functionObjects::Curle::Curle
+Foam::functionObjects::FfowcsWilliamsHawkings::FfowcsWilliamsHawkings
 (
     const word& name,
     const objectRegistry& obr,
     const dictionary& dict
 )
 :
-    writeFiles(name, obr, dict, name),
+    regionFunctionObject(name, obr, dict),
+    logFiles(obr_, name),
     name_(name),
     initialised_(false),
     log_(false),
     patches_(0),
-    cellZoneName_(word::null),
-    cellZoneID_(-1),
     pName_(word::null),
     UName_(word::null),
     rhoRef_(-1),
@@ -302,24 +271,20 @@ Foam::functionObjects::Curle::Curle
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 
-Foam::functionObjects::Curle::~Curle()
+Foam::functionObjects::FfowcsWilliamsHawkings::~FfowcsWilliamsHawkings()
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 
-bool Foam::functionObjects::Curle::read(const dictionary& dict)
+bool Foam::functionObjects::FfowcsWilliamsHawkings::read(const dictionary& dict)
 {
     const fvMesh& mesh = refCast<const fvMesh>(obr_);
 
     log_ = dict.lookupOrDefault<Switch>("log", false);
 
     patches_ = mesh.boundaryMesh().patchSet(wordReList(dict.lookup("patches")));
-    
-    cellZoneName_ = dict.lookupOrDefault<word>("cellZone", word::null);
-    
-    cellZoneID_ = mesh.cellZones().findZoneID(cellZoneName_);
     
     pName_ = dict.lookupOrDefault<word>("pName", "p");
     
@@ -357,21 +322,21 @@ bool Foam::functionObjects::Curle::read(const dictionary& dict)
 }
 
 
-bool Foam::functionObjects::Curle::execute()
+bool Foam::functionObjects::FfowcsWilliamsHawkings::execute()
 {
     return true;
 }
 
 
-bool Foam::functionObjects::Curle::write()
+bool Foam::functionObjects::FfowcsWilliamsHawkings::write()
 {
     calculate();
 
     if (Pstream::master())
     {
-        writeFiles::write();
+        logFiles::write();
 
-        writeCurle();
+        writeFfowcsWilliamsHawkings();
 
         if (log_) Info << endl;
     }
@@ -380,7 +345,7 @@ bool Foam::functionObjects::Curle::write()
 }
 
 
-void Foam::functionObjects::Curle::calculate()
+void Foam::functionObjects::FfowcsWilliamsHawkings::calculate()
 {
     initialise();
 
@@ -391,13 +356,13 @@ void Foam::functionObjects::Curle::calculate()
     volScalarField p = this->p();
     volScalarField dpdt = this->dpdt();
     
-    p.correctBoundaryConditions();
-    dpdt.correctBoundaryConditions();
+    // Velocity field and its time derivative
+    volVectorField U = this->U();
+    volVectorField dUdt = this->dUdt();
 
-    // Lighthill tensor and its time derivatives
-    volTensorField Tij = this->Tij();
-    volTensorField dTijdt = this->dTijdt();
-    volTensorField d2Tijdt2 = this->d2Tijdt2();
+    // Surface normal vector and its time derivative
+    surfaceVectorField n = this->n();
+    surfaceVectorField dndt = this->dndt();
 
     // Calculate constant
     scalar coeff = 1.0 / ( 4.0 * Foam::constant::mathematical::pi );
@@ -411,38 +376,6 @@ void Foam::functionObjects::Curle::calculate()
         SoundObserver& obs = observers_[obsI];
         scalar pPrime = 0.0;
 
-        // Volume integral
-        if (cellZoneID_ != -1)
-        {
-            // List of cells in cellZoneID
-            const labelList& cells = mesh.cellZones()[cellZoneID_];
-
-            // Cell volume and cell center
-            const scalarField& V = mesh.V();
-            const vectorField& C = mesh.C();
-
-            // Loop over all cells
-            forAll(cells, i)
-            {
-                label cellI = cells[i];
-
-                // Distance to observer
-                scalar r = mag(obs.position() - C[cellI]);
-                vector l = (obs.position() - C[cellI]) / r;
-
-                // Calculate pressure fluctuation
-                pPrime += coeff * V[cellI] * 
-                        (
-                            ((l*l) && d2Tijdt2[cellI]) / (cRef_ * cRef_ * r)
-                          + ((3.0 * l*l - I) && dTijdt[cellI]) / (cRef_ * r * r)
-                          + ((3.0 * l*l - I) && Tij[cellI]) / (r * r * r)
-                        );
-            }
-            reduce(pPrime, sumOp<scalar>());
-        }
-
-
-
         // Surface integral - loop over all patches
         forAllConstIter(labelHashSet, patches_, iter)
         {
@@ -450,37 +383,48 @@ void Foam::functionObjects::Curle::calculate()
             label patchI = iter.key();
 
             // Surface area vector and face center at patch
-            vectorField Sf = mesh.Sf().boundaryField()[patchI];
+            scalarField magSf = mesh.magSf().boundaryField()[patchI];
             vectorField Cf = mesh.Cf().boundaryField()[patchI];
             
             // Normal vector pointing towards fluid
-            vectorField n = -Sf/mag(Sf);
+            vectorField np = n.boundaryField()[patchI];
+            vectorField dndtp = dndt.boundaryField()[patchI];
 
             // Pressure field and time derivative at patch
             scalarField pp = p.boundaryField()[patchI];
             scalarField dpdtp = dpdt.boundaryField()[patchI];
             
-            // Lighthill tensor on patch
-            tensorField Tijp = Tij.boundaryField()[patchI];
-            tensorField dTijdtp = dTijdt.boundaryField()[patchI];
+            // Velocity field ant time derivative at patch
+            vectorField Up = U.boundaryField()[patchI];
+            vectorField dUdtp = dUdt.boundaryField()[patchI];
 
             // Distance surface-observer
             scalarField r = mag(obs.position() - Cf);
             vectorField l = (obs.position() - Cf) / r;
+            vectorField rHat = l / r;
+            
+            // Surface normal velocity
+            scalarField Un = Up & np;
+            scalarField UnDot = (dUdtp & np) + (Up & dndtp);
+            
+            // Mach number
+            vectorField M = Up / cRef_;
+            scalarField Mr = M & rHat;
+            scalarField Mn = M & np;
+            scalarField MrDot = rHat & (dUdtp / cRef_);
 
-            // Calculate pressure fluctuations
-            pPrime += coeff * gSum
-            (
-                (
-                    (l*n)
-                  && 
-                    (
-                        (dpdtp*I - dTijdtp) / (cRef_*r)
-                      + (pp*I - Tijp) / sqr(r)
-                    )
-                )
-              * mag(Sf)
-            );
+            // Intermediate variables
+            vectorField Li = (p.boundaryField()[patchI]*I) & np;
+            vectorField dLidt = (dpdt.boundaryField()[patchI]*I) & np;
+
+            // Thickness noise
+            pPrime += gSum( UnDot * magSf / (r * sqr(1.0 - Mr)) ) * rhoRef_ * coeff;
+            pPrime += gSum( Un * (r*MrDot + cRef_*(Mr - magSqr(M))) / ( sqr(r) * sqr(1.0 - Mr) * (1.0 - Mr) ) ) * rhoRef_ * coeff;
+            
+            // Loading noise
+            pPrime += gSum( (dLidt & rHat) * magSf / (r * sqr(1.0 - Mr)) ) * coeff / cRef_;
+            pPrime += gSum( ( (Li & rHat) - (Li & M) ) * magSf / (sqr(r) * sqr(1.0 - Mr)) ) * coeff;
+            pPrime += gSum( ( (Li & rHat) * (r * MrDot + cRef_*(Mr - magSqr(M))) * magSf) / (sqr(r) * sqr(1.0 - Mr) * (1.0 - Mr)) ) * coeff;
         }
         obs.pPrime(pPrime);
     }

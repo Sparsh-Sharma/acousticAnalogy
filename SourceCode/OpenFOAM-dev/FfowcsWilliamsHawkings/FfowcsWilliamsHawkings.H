@@ -22,27 +22,27 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::Curle
+    Foam::FfowcsWilliamsHawkings
 
 Description
-    Implementation of the Curle analogy for incompressible flow as
+    Implementation of the Ffowcs-Williams-Hawkings acoustic analogy for
+    moving or stationary walls in incompressible flow as
     described in:
     \verbatim
-        Johan Larsson, Lars Davidson, Magnus Olsson, Lars-Erik Eriksson (2004).
-        Aeroacoustic Investigation of an Open Cavity at Low Mach Number.
-        AIAA Journal, Vol. 42, No. 12.
+        F. Farassat (2007).
+        Derivation of Formulations of 1 and 1A of Farassat.
+        NASA Technical Memorandum 214853.
     \endverbatim
 
     Example of function object specification:
     \verbatim
-    Curle1
+    FfowcsWilliamsHawkings1
     {
-        type                    Curle;
+        type                    FfowcsWilliamsHawkings;
         functionObjectLibs      ("libAcousticAnalogy.so");
         log                     true;
 
         patches                 ( cylinder1 cylinder2 );
-        cellZone                cellZoneName;
         rhoRef                  1.225;
         cRef                    343;
 
@@ -59,10 +59,9 @@ Description
     \heading Function object usage
     \table
         Property     | Description                                       | Required    | Default value
-        type         | type name: Curle                                  | yes         |
+        type         | type name: FfowcsWilliamsHawkings                                    | yes         |
         log          | write acoustic data to standard output            | no          | no
         patches      | patches included in the acoustic calculation      | yes         |
-        cellZone     | name of cell zone for acoustic volume integrals   | no          |
         rhoRef       | reference density                                 | yes         |
         cRef         | reference speed of sound                          | yes         |
         pName        | pressure field name                               | no          | p
@@ -72,10 +71,11 @@ Description
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef Curle_H
-#define Curle_H
+#ifndef FfowcsWilliamsHawkings_H
+#define FfowcsWilliamsHawkings_H
 
-#include "writeFiles.H"
+#include "regionFunctionObject.H"
+#include "logFiles.H"
 #include "volFields.H"
 #include "fvcDdt.H"
 #include "soundObserver.H"
@@ -88,18 +88,19 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class Curle Declaration
+                   Class FfowcsWilliamsHawkings Declaration
 \*---------------------------------------------------------------------------*/
 
-class Curle
+class FfowcsWilliamsHawkings
 :
-    public writeFiles
+    public regionFunctionObject,
+    public logFiles
 {
 protected:
 
     // Protected data
 
-        //- Name of this set of Curle,
+        //- Name of this set of FfowcsWilliamsHawkings,
         word name_;
 
         //- Initialised flag
@@ -110,12 +111,6 @@ protected:
         
         //- Patches to sample
         labelHashSet patches_;
-        
-        //- Name of cellZone
-        word cellZoneName_;
-        
-        //- ID of cellZone
-        label cellZoneID_;
         
         //- Name of pressure field (optional)
         word pName_;
@@ -135,50 +130,53 @@ protected:
 
     // Protected Member Functions
 
-        //- Create file names for Curle
+        //- Create file names for FfowcsWilliamsHawkings
         wordList createFileNames(const dictionary& dict) const;
 
         //- Output file header information
         virtual void writeFileHeader(const label i);
 
         //- Helper function to write acoustic data
-        void writeCurle();
+        void writeFfowcsWilliamsHawkings();
 
         //- Initialise the fields
         void initialise();
 
-        //- Return pressure
+        //- Return pressure field
         tmp<volScalarField> p() const;
 
-        //- Return pressure time derivative
+        //- Return pressure field time derivative
         tmp<volScalarField> dpdt() const;
 
-        //- Return Lighthill tensor
-        tmp<volTensorField> Tij() const;
+        //- Return velocity field
+        tmp<volVectorField> U() const;
 
-        //- Return first time derivative of Lighthill tensor 
-        tmp<volTensorField> dTijdt() const;
+        //- Return velocity field time derivative
+        tmp<volVectorField> dUdt() const;
 
-        //- Return second time derivative of Lighthill tensor 
-        tmp<volTensorField> d2Tijdt2() const;
+        //- Return surface normal vector
+        tmp<surfaceVectorField> n() const;
+
+        //- Return surface normal vector time derivative
+        tmp<surfaceVectorField> dndt() const;
 
         //- Disallow default bitwise copy construct
-        Curle(const Curle&);
+        FfowcsWilliamsHawkings(const FfowcsWilliamsHawkings&);
 
         //- Disallow default bitwise assignment
-        void operator=(const Curle&);
+        void operator=(const FfowcsWilliamsHawkings&);
 
 
 public:
 
     //- Runtime type information
-    TypeName("Curle");
+    TypeName("FfowcsWilliamsHawkings");
 
 
     // Constructors
 
         //- Construct from Time and dictionary
-        Curle
+        FfowcsWilliamsHawkings
         (
             const word& name,
             const Time& runTime,
@@ -186,7 +184,7 @@ public:
         );
         
         //- Construct from objectRegistry and dictionary
-        Curle
+        FfowcsWilliamsHawkings
         (
             const word& name,
             const objectRegistry& obr,
@@ -195,12 +193,12 @@ public:
 
 
     //- Destructor
-    virtual ~Curle();
+    virtual ~FfowcsWilliamsHawkings();
 
 
     // Member Functions
 
-        //- Read the Curle data
+        //- Read the FfowcsWilliamsHawkings data
         virtual bool read(const dictionary&);
 
         //- Calculate the acoustic data
